@@ -11,7 +11,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <shlwapi.h>
-
+#include <strsafe.h>
 
 FILE *log_stream;
 
@@ -88,8 +88,8 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
         size_t msg_len = _tcslen(intro) + _tcslen(int_str);
 
         auto err_msg = new TCHAR[msg_len + 1];
-        StrCpy(err_msg, intro);
-        StrCat(err_msg, int_str);
+        StringCchCopy(err_msg, _tcslen(intro) + 1, intro);
+        StringCchCat(err_msg, _tcslen(int_str) + 1, int_str);
 
         msg = err_msg;
     }
@@ -100,7 +100,7 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
 
 void BackupDirectory(LPCTSTR source_directory, LPCTSTR destination_directory) {
     auto *search_path = new TCHAR[MAX_PATH];
-    StrCpy(search_path, source_directory);
+    StringCchCopy(search_path, _tcslen(source_directory) + 1, source_directory);
     LPCTSTR search_char = _T("*");
     PathAppend(search_path, search_char);
 
@@ -113,11 +113,11 @@ void BackupDirectory(LPCTSTR source_directory, LPCTSTR destination_directory) {
                 continue;
 
             auto *source_path = new TCHAR[MAX_PATH];
-            StrCpy(source_path, source_directory);
+            StringCchCopy(source_path, _tcslen(source_directory) + 1, source_directory);
             PathAppend(source_path, fd.cFileName);
 
             auto *dest_path = new TCHAR[MAX_PATH];
-            StrCpy(dest_path, destination_directory);
+            StringCchCopy(dest_path, _tcslen(destination_directory) + 1, destination_directory);
             PathAppend(dest_path, fd.cFileName);
 
             if (!PathFileExists(destination_directory)) {

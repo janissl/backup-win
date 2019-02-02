@@ -26,6 +26,14 @@ void PrintUsage(const char *app_name) {
 }
 
 
+TCHAR *CharPtrToTcharPtr(const char *input_string) {
+    int output_string_len = MultiByteToWideChar(CP_UTF8, 0, input_string, -1, nullptr, 0);
+    auto *output_string = new TCHAR[output_string_len];
+    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
+    return output_string;
+}
+
+
 bool GetLastWriteTime(LPCTSTR file_path, FILETIME *last_modified) {
     HANDLE hFile = CreateFile(file_path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
 
@@ -153,13 +161,7 @@ void BackupDirectory(LPCTSTR source_directory, LPCTSTR destination_directory) {
 }
 
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        const char *exename = PathFindFileNameA(argv[0]);
-        PrintUsage(exename);
-        return 1;
-    }
-
+void RunBackup(const char *source_root, const char *dest_root) {
 #ifdef UNICODE
     _wfopen_s(&log_stream, _T("last.log"), _T("w, ccs=UTF-8"));
 #else
@@ -168,24 +170,31 @@ int main(int argc, char *argv[]) {
 
     if (log_stream == nullptr) {
         std::cerr << "Failed to create a log_stream file!" << std::endl;
-        return 1;
+        return;
     }
 
-    int src_dir_wc_len = MultiByteToWideChar(CP_UTF8, 0, argv[1], -1, nullptr, 0);
-    auto *src_dir_wc = new TCHAR[src_dir_wc_len];
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, argv[1], -1, src_dir_wc, src_dir_wc_len);
+    LPCTSTR src_root = CharPtrToTcharPtr(source_root);
+    LPCTSTR dst_root = CharPtrToTcharPtr(dest_root);
 
-    int dst_dir_wc_len = MultiByteToWideChar(CP_UTF8, 0, argv[2], -1, nullptr, 0);
-    auto *dst_dir_wc = new TCHAR[dst_dir_wc_len];
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, argv[2], -1, dst_dir_wc, dst_dir_wc_len);
-
-    if (!PathFileExists(src_dir_wc)) {
-        _ftprintf(log_stream, _T("The source directory '%s' does not exist\n"), argv[1]);
-        return 1;
+    if (!PathFileExists(src_root)) {
+        _ftprintf(log_stream, _T("The source directory '%s' does not exist\n"), source_root);
+        return;
     }
 
-    BackupDirectory(src_dir_wc, dst_dir_wc);
+    BackupDirectory(src_root, dst_root);
 
     fclose(log_stream);
+}
+
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        const char *exe_name = PathFindFileNameA(argv[0]);
+        PrintUsage(exe_name);
+        return 1;
+    }
+
+    RunBackup(argv[1], argv[2]);
+
     return 0;
 }

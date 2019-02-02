@@ -26,11 +26,19 @@ void PrintUsage(const char *app_name) {
 }
 
 
-TCHAR *CharPtrToTcharPtr(const char *input_string) {
+LPCTSTR CharPtrToTcharPtr(const char *input_string) {
     int output_string_len = MultiByteToWideChar(CP_UTF8, 0, input_string, -1, nullptr, 0);
     auto *output_string = new TCHAR[output_string_len];
     MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
     return output_string;
+}
+
+
+LPCTSTR JoinPath(LPCTSTR parent, LPCTSTR child) {
+    auto *new_path = new TCHAR[MAX_PATH];
+    StringCchCopy(new_path, _tcslen(parent) + 1, parent);
+    PathAppend(new_path, child);
+    return new_path;
 }
 
 
@@ -75,6 +83,44 @@ bool IsBackupRequired(LPCTSTR source_path, LPCTSTR dest_path) {
 }
 
 
+size_t GetDigitCount(size_t number) {
+    size_t digits = 0;
+
+    while (number) {
+        number /= 10;
+        ++digits;
+    }
+
+    return digits;
+}
+
+
+LPCTSTR UIntToHexTcharPtr(size_t number) {
+    size_t error_code_digit_count = GetDigitCount((size_t)number);
+    auto int_str = new TCHAR[error_code_digit_count + 1];
+    _itot_s((int)number, int_str, error_code_digit_count + 1, 16);
+    return int_str;
+}
+
+
+LPCTSTR ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
+    size_t out_len = _tcslen(str1) + _tcslen(str2);
+
+    auto out_str = new TCHAR[out_len + 1];
+    StringCchCopy(out_str, _tcslen(str1) + 1, str1);
+    StringCchCat(out_str, out_len + 1, str2);
+
+    return out_str;
+}
+
+
+LPCTSTR BuildFormatErrorMessage(DWORD error_code) {
+    LPCTSTR intro = _T("Format message failed with 0x");
+    LPCTSTR int_str = UIntToHexTcharPtr((size_t)error_code);
+    return ConcatTcharPtr(intro, int_str);
+}
+
+
 LPCTSTR GetErrorDescription(DWORD error_code) {
     LPCTSTR msg = nullptr;
 
@@ -85,21 +131,7 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
                        (LPTSTR)&msg,
                        0,
                        nullptr)) {
-        auto err_code = (unsigned int)GetLastError();
-
-        LPCTSTR intro = _T("Format message failed with 0x");
-
-        size_t error_code_max_digit_count = 5;
-        auto int_str = new TCHAR[error_code_max_digit_count + 1];
-        _itot_s((int)err_code, int_str, error_code_max_digit_count + 1, 16);
-
-        size_t msg_len = _tcslen(intro) + _tcslen(int_str);
-
-        auto err_msg = new TCHAR[msg_len + 1];
-        StringCchCopy(err_msg, _tcslen(intro) + 1, intro);
-        StringCchCat(err_msg, _tcslen(int_str) + 1, int_str);
-
-        msg = err_msg;
+        msg = BuildFormatErrorMessage(GetLastError());
     }
 
     return msg;
@@ -107,10 +139,8 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
 
 
 void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory) {
-    auto *search_path = new TCHAR[MAX_PATH];
-    StringCchCopy(search_path, _tcslen(source_directory) + 1, source_directory);
     LPCTSTR search_char = _T("*");
-    PathAppend(search_path, search_char);
+    LPCTSTR search_path = JoinPath(source_directory, search_char);
 
     WIN32_FIND_DATA fd;
     HANDLE hFind = ::FindFirstFile(search_path, &fd);
@@ -120,13 +150,8 @@ void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory
             if (StrCmp(fd.cFileName, _T(".")) == 0 || StrCmp(fd.cFileName, _T("..")) == 0)
                 continue;
 
-            auto *source_path = new TCHAR[MAX_PATH];
-            StringCchCopy(source_path, _tcslen(source_directory) + 1, source_directory);
-            PathAppend(source_path, fd.cFileName);
-
-            auto *dest_path = new TCHAR[MAX_PATH];
-            StringCchCopy(dest_path, _tcslen(destination_directory) + 1, destination_directory);
-            PathAppend(dest_path, fd.cFileName);
+            LPCTSTR source_path = JoinPath(source_directory, fd.cFileName);
+            LPCTSTR dest_path = JoinPath(destination_directory, fd.cFileName);
 
             if (!PathFileExists(destination_directory)) {
                 if (!CreateDirectory(destination_directory, nullptr)) {

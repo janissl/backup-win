@@ -106,7 +106,7 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
 }
 
 
-void BackupDirectory(LPCTSTR source_directory, LPCTSTR destination_directory) {
+void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory) {
     auto *search_path = new TCHAR[MAX_PATH];
     StringCchCopy(search_path, _tcslen(source_directory) + 1, source_directory);
     LPCTSTR search_char = _T("*");
@@ -152,7 +152,7 @@ void BackupDirectory(LPCTSTR source_directory, LPCTSTR destination_directory) {
                     }
                 }
             } else {
-                BackupDirectory(source_path, dest_path);
+                BackupDirectoryTree(source_path, dest_path);
             }
         } while (::FindNextFile(hFind, &fd));
 
@@ -181,7 +181,7 @@ void RunBackup(const char *source_root, const char *dest_root) {
         return;
     }
 
-    BackupDirectory(src_root, dst_root);
+    BackupDirectoryTree(src_root, dst_root);
 
     fclose(log_stream);
 }

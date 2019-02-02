@@ -194,7 +194,7 @@ void RunBackup(const char *source_root, const char *dest_root) {
 #endif
 
     if (log_stream == nullptr) {
-        std::cerr << "Failed to create a log_stream file!" << std::endl;
+        std::cerr << "Could not to create the last.log file!" << std::endl;
         return;
     }
 

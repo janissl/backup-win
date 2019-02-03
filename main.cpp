@@ -30,6 +30,7 @@ LPCTSTR CharPtrToTcharPtr(const char *input_string) {
     int output_string_len = MultiByteToWideChar(CP_UTF8, 0, input_string, -1, nullptr, 0);
     auto *output_string = new TCHAR[output_string_len];
     MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
+    delete input_string;
     return output_string;
 }
 
@@ -110,6 +111,9 @@ LPCTSTR ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
     StringCchCopy(out_str, _tcslen(str1) + 1, str1);
     StringCchCat(out_str, out_len + 1, str2);
 
+    delete [] str1;
+    delete [] str2;
+
     return out_str;
 }
 
@@ -159,6 +163,7 @@ void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory
                     _ftprintf(log_stream,
                               _T("FAILED to create '%ls' - %ls\n"),
                               destination_directory, msg);
+                    delete [] msg;
                     continue;
                 }
             }
@@ -170,6 +175,7 @@ void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory
                         _ftprintf(log_stream,
                                   _T("FAILED to copy '%ls' to '%ls' - %ls\n"),
                                   source_path, dest_path, msg);
+                        delete [] msg;
                     } else {
                         _ftprintf(log_stream,
                                   _T("'%ls' -> '%ls'\n"),
@@ -179,10 +185,15 @@ void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory
             } else {
                 BackupDirectoryTree(source_path, dest_path);
             }
+
+            delete [] source_path;
+            delete [] dest_path;
         } while (::FindNextFile(hFind, &fd));
 
         ::FindClose(hFind);
     }
+
+    delete [] search_path;
 }
 
 
@@ -207,6 +218,9 @@ void RunBackup(const char *source_root, const char *dest_root) {
     }
 
     BackupDirectoryTree(src_root, dst_root);
+
+    delete [] src_root;
+    delete [] dst_root;
 
     fclose(log_stream);
 }

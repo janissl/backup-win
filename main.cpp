@@ -27,10 +27,9 @@ void PrintUsage(const char *app_name) {
 
 
 LPCTSTR CharPtrToTcharPtr(const char *input_string) {
-    int output_string_len = MultiByteToWideChar(CP_UTF8, 0, input_string, -1, nullptr, 0);
+    int output_string_len = MultiByteToWideChar(CP_ACP, 0, input_string, -1, nullptr, 0);
     auto *output_string = new TCHAR[output_string_len];
-    MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
-    delete input_string;
+    MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
     return output_string;
 }
 
@@ -216,6 +215,9 @@ void RunBackup(const char *source_root, const char *dest_root) {
         _ftprintf(log_stream, _T("The source directory '%s' does not exist\n"), source_root);
         return;
     }
+
+    delete [] source_root;
+    delete [] dest_root;
 
     BackupDirectoryTree(src_root, dst_root);
 

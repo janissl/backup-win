@@ -13,6 +13,7 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 
+
 FILE *log_stream;
 
 
@@ -120,7 +121,9 @@ LPCTSTR ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
 LPCTSTR BuildFormatErrorMessage(DWORD error_code) {
     LPCTSTR intro = _T("Format message failed with 0x");
     LPCTSTR int_str = UIntToHexTcharPtr((size_t)error_code);
-    return ConcatTcharPtr(intro, int_str);
+    LPCTSTR msg = ConcatTcharPtr(intro, int_str);
+    delete [] int_str;
+    return msg;
 }
 
 

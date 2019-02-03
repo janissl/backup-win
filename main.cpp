@@ -111,9 +111,6 @@ LPCTSTR ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
     StringCchCopy(out_str, _tcslen(str1) + 1, str1);
     StringCchCat(out_str, out_len + 1, str2);
 
-    delete [] str1;
-    delete [] str2;
-
     return out_str;
 }
 
@@ -218,9 +215,6 @@ void RunBackup(const char *source_root, const char *dest_root) {
         _ftprintf(log_stream, _T("The source directory '%s' does not exist\n"), source_root);
         return;
     }
-
-    delete [] source_root;
-    delete [] dest_root;
 
     BackupDirectoryTree(src_root, dst_root);
 

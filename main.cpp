@@ -200,7 +200,7 @@ void RunBackup(const char *source_root, const char *dest_root) {
 #ifdef UNICODE
     _wfopen_s(&log_stream, _T("last.log"), _T("w, ccs=UTF-8"));
 #else
-    fopen_s(&log_stream, "last.log_stream", "w");
+    fopen_s(&log_stream, "last.log", "w");
 #endif
 
     if (log_stream == nullptr) {

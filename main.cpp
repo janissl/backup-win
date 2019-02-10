@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 
 #ifndef UNICODE
 #define UNICODE
@@ -13,32 +14,37 @@
 #include <shlwapi.h>
 #include <strsafe.h>
 
+using std::cerr;
+using std::endl;
+using std::unique_ptr;
+using std::make_unique;
+
 
 FILE *log_stream;
 
 
 void PrintUsage(const char *app_name) {
-    std::cerr << std::endl;
-    std::cerr << "USAGE: " << app_name << " SOURCE_DIRECTORY DESTINATION_DIRECTORY" << std::endl;
-    std::cerr << std::endl;
-    std::cerr << "\tSOURCE DIRECTORY:         The path of the directory to copy from" << std::endl;
-    std::cerr << "\tDESTINATION DIRECTORY:    The path of the directory to copy to" << std::endl;
-    std::cerr << std::endl;
+    cerr << endl;
+    cerr << "USAGE: " << app_name << " SOURCE_DIRECTORY DESTINATION_DIRECTORY" << endl;
+    cerr << endl;
+    cerr << "\tSOURCE DIRECTORY:         The path of the directory to copy from" << endl;
+    cerr << "\tDESTINATION DIRECTORY:    The path of the directory to copy to" << endl;
+    cerr << endl;
 }
 
 
-LPCTSTR CharPtrToTcharPtr(const char *input_string) {
+unique_ptr<TCHAR[]> CharPtrToTcharPtr(const char *input_string) {
     int output_string_len = MultiByteToWideChar(CP_ACP, 0, input_string, -1, nullptr, 0);
-    auto *output_string = new TCHAR[output_string_len];
-    MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, input_string, -1, output_string, output_string_len);
+    auto output_string = make_unique<TCHAR[]>(static_cast<size_t>(output_string_len));
+    MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS, input_string, -1, output_string.get(), output_string_len);
     return output_string;
 }
 
 
-LPCTSTR JoinPath(LPCTSTR parent, LPCTSTR child) {
-    auto *new_path = new TCHAR[MAX_PATH];
-    StringCchCopy(new_path, _tcslen(parent) + 1, parent);
-    PathAppend(new_path, child);
+unique_ptr<TCHAR[]> JoinPath(LPCTSTR parent, LPCTSTR child) {
+    auto new_path = make_unique<TCHAR[]>(MAX_PATH);
+    StringCchCopy(new_path.get(), _tcslen(parent) + 1, parent);
+    PathAppend(new_path.get(), child);
     return new_path;
 }
 
@@ -51,15 +57,16 @@ bool GetLastWriteTime(LPCTSTR file_path, FILETIME *last_modified) {
     }
 
     FILETIME ft_created, ft_accessed;
-    int result = GetFileTime(hFile, &ft_created, &ft_accessed, last_modified);
-
+    auto result = GetFileTime(hFile, &ft_created, &ft_accessed, last_modified);
     CloseHandle(hFile);
+
     return (result != 0);
 }
 
 
 bool IsBackupRequired(LPCTSTR source_path, LPCTSTR dest_path) {
     bool backup_required = false;
+
     if (!PathFileExists(dest_path)) {
         backup_required = true;
     } else {
@@ -96,36 +103,35 @@ size_t GetDigitCount(size_t number) {
 }
 
 
-LPCTSTR UIntToHexTcharPtr(size_t number) {
+unique_ptr<TCHAR[]> UIntToHexTcharPtr(size_t number) {
     size_t error_code_digit_count = GetDigitCount((size_t)number);
-    auto int_str = new TCHAR[error_code_digit_count + 1];
-    _itot_s((int)number, int_str, error_code_digit_count + 1, 16);
+    auto int_str = make_unique<TCHAR[]>(error_code_digit_count + 1);
+    _itot_s(static_cast<int>(number), int_str.get(), error_code_digit_count + 1, 16);
     return int_str;
 }
 
 
-LPCTSTR ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
+unique_ptr<TCHAR[]> ConcatTcharPtr(LPCTSTR str1, LPCTSTR str2) {
     size_t out_len = _tcslen(str1) + _tcslen(str2);
 
-    auto out_str = new TCHAR[out_len + 1];
-    StringCchCopy(out_str, _tcslen(str1) + 1, str1);
-    StringCchCat(out_str, out_len + 1, str2);
+    auto out_str = make_unique<TCHAR[]>(out_len + 1);
+    StringCchCopy(out_str.get(), _tcslen(str1) + 1, str1);
+    StringCchCat(out_str.get(), out_len + 1, str2);
 
     return out_str;
 }
 
 
-LPCTSTR BuildFormatErrorMessage(DWORD error_code) {
-    LPCTSTR intro = _T("Format message failed with 0x");
-    LPCTSTR int_str = UIntToHexTcharPtr((size_t)error_code);
-    LPCTSTR msg = ConcatTcharPtr(intro, int_str);
-    delete [] int_str;
+unique_ptr<TCHAR[]> BuildFormatErrorMessage(DWORD error_code) {
+    auto intro = _T("Format message failed with 0x");
+    auto int_str = UIntToHexTcharPtr((size_t)error_code);
+    auto msg = ConcatTcharPtr(intro, int_str.get());
     return msg;
 }
 
 
-LPCTSTR GetErrorDescription(DWORD error_code) {
-    LPCTSTR msg = nullptr;
+unique_ptr<TCHAR[]> GetErrorDescription(DWORD error_code) {
+    unique_ptr<TCHAR[]> msg = nullptr;
 
     if (!FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_ALLOCATE_BUFFER,
                        nullptr,
@@ -142,57 +148,51 @@ LPCTSTR GetErrorDescription(DWORD error_code) {
 
 
 void BackupDirectoryTree(LPCTSTR source_directory, LPCTSTR destination_directory) {
-    LPCTSTR search_char = _T("*");
-    LPCTSTR search_path = JoinPath(source_directory, search_char);
+    auto search_char = _T("*");
+    auto search_path = JoinPath(source_directory, search_char);
 
     WIN32_FIND_DATA fd;
-    HANDLE hFind = ::FindFirstFile(search_path, &fd);
+    HANDLE hFind = ::FindFirstFile(search_path.get(), &fd);
 
     if (hFind != INVALID_HANDLE_VALUE) {
         do {
             if (StrCmp(fd.cFileName, _T(".")) == 0 || StrCmp(fd.cFileName, _T("..")) == 0)
                 continue;
 
-            LPCTSTR source_path = JoinPath(source_directory, fd.cFileName);
-            LPCTSTR dest_path = JoinPath(destination_directory, fd.cFileName);
+            auto source_path = JoinPath(source_directory, fd.cFileName);
+            auto dest_path = JoinPath(destination_directory, fd.cFileName);
 
             if (!PathFileExists(destination_directory)) {
                 if (!CreateDirectory(destination_directory, nullptr)) {
-                    LPCTSTR msg = GetErrorDescription(GetLastError());
+                    auto msg = GetErrorDescription(GetLastError());
                     _ftprintf(log_stream,
                               _T("FAILED to create '%ls' - %ls\n"),
-                              destination_directory, msg);
-                    delete [] msg;
+                              destination_directory, msg.get());
                     continue;
                 }
             }
 
             if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                if (IsBackupRequired(source_path, dest_path)) {
-                    if (!CopyFile(source_path, dest_path, false)) {
-                        LPCTSTR msg = GetErrorDescription(GetLastError());
+                if (IsBackupRequired(source_path.get(), dest_path.get())) {
+                    if (!CopyFile(source_path.get(), dest_path.get(), false)) {
+                        auto msg = GetErrorDescription(GetLastError());
                         _ftprintf(log_stream,
                                   _T("FAILED to copy '%ls' to '%ls' - %ls\n"),
-                                  source_path, dest_path, msg);
-                        delete [] msg;
+                                  source_path.get(), dest_path.get(), msg.get());
                     } else {
                         _ftprintf(log_stream,
                                   _T("'%ls' -> '%ls'\n"),
-                                  source_path, dest_path);
+                                  source_path.get(), dest_path.get());
                     }
                 }
             } else {
-                BackupDirectoryTree(source_path, dest_path);
+                BackupDirectoryTree(source_path.get(), dest_path.get());
             }
 
-            delete [] source_path;
-            delete [] dest_path;
         } while (::FindNextFile(hFind, &fd));
 
         ::FindClose(hFind);
     }
-
-    delete [] search_path;
 }
 
 
@@ -204,22 +204,19 @@ void RunBackup(const char *source_root, const char *dest_root) {
 #endif
 
     if (log_stream == nullptr) {
-        std::cerr << "Could not to create the last.log file!" << std::endl;
+        cerr << "Could not to create the last.log file!" << endl;
         return;
     }
 
-    LPCTSTR src_root = CharPtrToTcharPtr(source_root);
-    LPCTSTR dst_root = CharPtrToTcharPtr(dest_root);
+    auto src_root = CharPtrToTcharPtr(source_root);
+    auto dst_root = CharPtrToTcharPtr(dest_root);
 
-    if (!PathFileExists(src_root)) {
+    if (!PathFileExists(src_root.get())) {
         _ftprintf(log_stream, _T("The source directory '%s' does not exist\n"), source_root);
         return;
     }
 
-    BackupDirectoryTree(src_root, dst_root);
-
-    delete [] src_root;
-    delete [] dst_root;
+    BackupDirectoryTree(src_root.get(), dst_root.get());
 
     fclose(log_stream);
 }
